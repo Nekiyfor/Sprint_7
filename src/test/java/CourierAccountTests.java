@@ -1,4 +1,3 @@
-import io.qameta.allure.Step;
 import io.restassured.RestAssured;
 import io.restassured.specification.RequestSpecification;
 import org.hamcrest.MatcherAssert;
@@ -6,6 +5,11 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
+
+import java.util.stream.Stream;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.equalTo;
@@ -41,7 +45,8 @@ public class CourierAccountTests {
     @Test
     @DisplayName("Проверка возникновения ошибки при попытке регистрации курьера с существующим логином")
     public void checkErrorRepeatCourierCreationTest() {
-        Courier courier = new Courier("shogun", "risingSun");
+        String login = "shogun_" + System.currentTimeMillis();
+        Courier courier = new Courier(login, "risingSun");
         request.body(courier)
                 .post("/api/v1/courier");
         request.body(courier)
@@ -55,29 +60,18 @@ public class CourierAccountTests {
                         .then().extract().body().path("id");
     }
 
-    @Test
+    @ParameterizedTest
+    @MethodSource("provideEmptyFieldTestCases")
     @DisplayName("Проверка возникновения ошибки при попытке регистрации без обязательных полей")
-    public void checkCourierCreationErrorRequiredFieldsTest() {
-        Courier courierOnlyLogin = new Courier("shogun", "");
-        Courier courierOnlyPassword = new Courier("", "risingSun");
-        Courier courierIsEmpty = new Courier("", "");
-
-        request.body(courierOnlyLogin)
+    public void checkCourierCreationErrorRequiredFieldsTest(String caseName, String login, String password) {
+        Courier courier = new Courier();
+        courier.setLogin(login);
+        courier.setPassword(password);
+        request.body(courier)
                 .when()
                 .post("/api/v1/courier")
                 .then().statusCode(400)
                 .body("message", equalTo("Недостаточно данных для создания учетной записи"));
-        request.body(courierOnlyPassword)
-                .when()
-                .post("/api/v1/courier")
-                .then().statusCode(400)
-                .body("message", equalTo("Недостаточно данных для создания учетной записи"));
-        request.body(courierIsEmpty)
-                .when()
-                .post("/api/v1/courier")
-                .then().statusCode(400)
-                .body("message", equalTo("Недостаточно данных для создания учетной записи"));
-
     }
 
     @Test
@@ -99,64 +93,49 @@ public class CourierAccountTests {
 
     }
 
-    @Test
+    @ParameterizedTest
+    @MethodSource("provideUnknownCredentials")
     @DisplayName("Проверка возникновения ошибки при попытке залогина с неизвестными учетными данными")
-    public void checkCourierErrorLoginTest(){
-        String login = "shogun_" + System.currentTimeMillis();
-        Courier courier = new Courier(login, "risingSun");
-        Courier wrongLogin = new Courier("WrongLogin","risingSun");
-        Courier wrongPassword = new Courier(login,"WrongPassword");
-        request.body(courier)
+    public void checkCourierErrorLoginTest(String caseName, String login, String password) {
+        Courier createdCourier = new Courier("shogun", "risingSun");
+        Courier courier = new Courier();
+        courier.setLogin(login);
+        courier.setPassword(password);
+        request.body(createdCourier)
                 .post("/api/v1/courier");
-        request.body(wrongLogin)
-                .when()
-                .post("/api/v1/courier/login")
-                .then().statusCode(404)
-                .body("message", equalTo("Учетная запись не найдена"));
-        request.body(wrongPassword)
+        request.body(courier)
                 .when()
                 .post("/api/v1/courier/login")
                 .then().statusCode(404)
                 .body("message", equalTo("Учетная запись не найдена"));
         courierId =
-                request.body(courier)
+                request.body(createdCourier)
                         .post("/api/v1/courier/login")
                         .then().extract().body().path("id");
 
     }
 
-    @Test
+    @ParameterizedTest
+    @MethodSource("provideEmptyFieldTestCases")
     @DisplayName("Проверка возникновения ошибки при попытке залогина без обязательных полей")
-    public void checkLoginRequiredFieldsTest(){
-        String login = "shogun_" + System.currentTimeMillis();
-        Courier courier = new Courier(login, "risingSun");
-        Courier courierOnlyLogin = new Courier(login, "");
-        Courier courierOnlyPassword = new Courier("", "risingSun");
-        Courier courierIsEmpty = new Courier("", "");
-        request.body(courier)
+    public void checkLoginRequiredFieldsTest(String caseName, String login, String password) {
+        Courier createdCourier = new Courier("greatShogun", "risingSun");
+        Courier courier = new Courier();
+        courier.setLogin(login);
+        courier.setPassword(password);
+        request.body(createdCourier)
                 .post("/api/v1/courier");
-        request.body(courierOnlyLogin)
-                .when()
-                .post("/api/v1/courier/login")
-                .then().statusCode(400)
-                .body("message", equalTo("Недостаточно данных для входа"));
-        request.body(courierOnlyPassword)
-                .when()
-                .post("/api/v1/courier/login")
-                .then().statusCode(400)
-                .body("message", equalTo("Недостаточно данных для входа"));
-        request.body(courierIsEmpty)
+        request.body(courier)
                 .when()
                 .post("/api/v1/courier/login")
                 .then().statusCode(400)
                 .body("message", equalTo("Недостаточно данных для входа"));
         courierId =
-                request.body(courier)
+                request.body(createdCourier)
                         .post("/api/v1/courier/login")
                         .then().extract().body().path("id");
 
     }
-
 
 
     @Test
@@ -173,6 +152,21 @@ public class CourierAccountTests {
         request.delete("/api/v1/courier/{courierId}", courierId)
                 .then().statusCode(200)
                 .body("ok", equalTo(true));
+    }
+
+    static Stream<Arguments> provideEmptyFieldTestCases() {
+        return Stream.of(
+                Arguments.of("Кейс без пароля", "greatShogun", ""),
+                Arguments.of("Кейс без логина", "", "risingSun"),
+                Arguments.of("Кейс с пустыми полями", "", "")
+        );
+    }
+
+    static Stream<Arguments> provideUnknownCredentials() {
+        return Stream.of(
+                Arguments.of("Кейс с неверным логином", "wrongLogin", "risingSun"),
+                Arguments.of("Кейс с неверным паролем", "shogun", "wrongPassword")
+        );
     }
 
 
