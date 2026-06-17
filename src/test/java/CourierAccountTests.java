@@ -60,7 +60,7 @@ public class CourierAccountTests {
                         .then().extract().body().path("id");
     }
 
-    @ParameterizedTest
+    @ParameterizedTest(name = "{0}")
     @MethodSource("provideEmptyFieldTestCases")
     @DisplayName("Проверка возникновения ошибки при попытке регистрации без обязательных полей")
     public void checkCourierCreationErrorRequiredFieldsTest(String caseName, String login, String password) {
@@ -93,7 +93,7 @@ public class CourierAccountTests {
 
     }
 
-    @ParameterizedTest
+    @ParameterizedTest(name = "{0}")
     @MethodSource("provideUnknownCredentials")
     @DisplayName("Проверка возникновения ошибки при попытке залогина с неизвестными учетными данными")
     public void checkCourierErrorLoginTest(String caseName, String login, String password) {
@@ -115,7 +115,7 @@ public class CourierAccountTests {
 
     }
 
-    @ParameterizedTest
+    @ParameterizedTest(name = "{0}")
     @MethodSource("provideEmptyFieldTestCases")
     @DisplayName("Проверка возникновения ошибки при попытке залогина без обязательных полей")
     public void checkLoginRequiredFieldsTest(String caseName, String login, String password) {
